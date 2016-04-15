@@ -16,6 +16,7 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.IInterface;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
@@ -25,6 +26,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.telecom.Call;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.SparseArray;
@@ -48,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     IBinder mAppThreadBinder;
     int cPid;
     ApplicationInfo appInfo;
+    long handle;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -227,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    public void buttonRemoveClick(View v) {
+    public void buttonBindClick(View v) {
 
         Log.d("TEST", "buttonRemoveClick\n\n");
 
@@ -282,7 +285,96 @@ public class MainActivity extends AppCompatActivity {
 
         data.recycle();
     }
-    public void buttonStartClick(View v) {
+    public void callTarget()
+    {
+        String processName;
+        Object mThread;
+        IBinder binder = new Binder();
+        String descriptor = "android.app.IApplicationThread";
+        try {
+            // Find ContextImpl
+            Context context = this;
+            while (context instanceof ContextWrapper) {
+                context = ((ContextWrapper) context).getBaseContext();
+            }
+
+            // Get ContextImpl.mMainThread
+            Field mainThreadField = Class.forName("android.app.ContextImpl").getDeclaredField("mMainThread");
+            mainThreadField.setAccessible(true);
+            Object mainThread = mainThreadField.get(context);
+
+            // Get application thread and return it as binder
+            Object applicationThread = Class.forName("android.app.ActivityThread").getMethod("getApplicationThread").invoke(mainThread);
+
+            try{
+                 processName = (String)Class.forName("android.app.ActivityThread").getMethod("getProcessName").invoke(mainThread);
+            } catch (final ClassNotFoundException e) {
+                // handle exception
+            } catch (final NoSuchMethodException e) {
+                // handle exception
+            } catch (final IllegalArgumentException e) {
+                // handle exception
+            } catch (final IllegalAccessException e) {
+                // handle exception
+            } catch (final InvocationTargetException e) {
+                // handle exception
+            }
+            //Toast.makeText(getApplicationContext(),processName, Toast.LENGTH_SHORT);
+            mThread = applicationThread;
+
+             binder = ((IInterface) applicationThread).asBinder();
+            //return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+        Parcel data = Parcel.obtain();
+        Parcel reply;
+        Configuration config;
+        config = this.getResources().getConfiguration();
+        boolean hour = true;
+        Bundle b = new Bundle();
+        String DEBUG_VIEW_ATTRIBUTES = "debug_view_attributes";
+        b.putInt(DEBUG_VIEW_ATTRIBUTES, 0);
+
+        data.writeInterfaceToken(descriptor);
+        data.writeString(appInfo.processName);
+        appInfo.writeToParcel(data, 0);
+        data.writeTypedList(null);
+        data.writeInt(0);//testName
+        data.writeString("doesnotmatter");//profilename kitkat
+        data.writeInt(0);//profilerInfo
+        data.writeInt(0);//autoStopProfiler kitkat
+        data.writeBundle(null);
+        data.writeStrongInterface(null);
+        data.writeStrongInterface(null);
+        data.writeInt(1);//debug mode
+        data.writeInt(0);//opengl
+        data.writeInt(0);//restrictedBackupMode
+        data.writeInt(0);//persistent
+        config.writeToParcel(data, 0);
+        //compatInfo.writeToParcel(data, 0);
+        data.writeInt(4);//compatinfo
+        data.writeInt(DisplayMetrics.DENSITY_DEFAULT);//compatinfo
+        data.writeFloat(1.0f);//compatinfo
+        data.writeFloat(1.0f);//compatinfo
+        data.writeMap(null);//services
+        //data.writeBundle(coreSettings);
+        data.writeBundle(b);
+        //if (binder = null)
+        try{
+        binder.transact(IBinder.FIRST_CALL_TRANSACTION + 52, data, null, IBinder.FLAG_ONEWAY);}
+        catch(final RemoteException e){Log.d("Test", "remote exception");}
+
+        data.recycle();
+    }
+
+    public void buttonTarget(View V){
+        callTarget();
+    }
+
+    public void buttonReplaceClick(View v) {
         //Intent i = new Intent(this, General.class);
         //startActivity(i);
         try {
@@ -299,24 +391,79 @@ public class MainActivity extends AppCompatActivity {
 
             // Get application thread and return it as binder
             Object applicationThread = Class.forName("android.app.ActivityThread").getMethod("getApplicationThread").invoke(mainThread);
-            mCallbackText.setText(Replace(applicationThread));
+           // mCallbackText.setText(Replace(applicationThread));
+            handle = Replace(applicationThread);
         }catch (Exception e) {
             e.printStackTrace();
         }
-
-
     }
-
     public native String  stringFromJNI();
-    public native String Replace(Object o);
-    /* this is used to load the 'hello-jni' library on application
-     * startup. The library has already been unpacked into
-     * /data/data/com.example.hellojni/lib/libhello-jni.so at
-     * installation time by the package manager.
-     */
-    static {
-        System.loadLibrary("hello-jni");
+    public native long Replace(Object o);
+    public native void SetOriginal(long handle);
+    public void hookMe(String s)
+    {
+        Log.d("Test", "Hook me!"+s);
     }
+    public void buttonHookMe(View v)
+    {
+        hookMe("ABC");
+    }
+    public void CallOriginal(long handle)
+    {
+        SetOriginal(handle);
+        hookMe("ABC");
+    }
+    public void buttonOrigin(View v)
+    {
+        CallOriginal(handle);
+    }
+    public void buttonStartActivity(View V)
+    {
+        Intent g = new Intent(this, Main2Activity.class);
+        startActivity(g);
+    }
+}
+
+/*
+        public void bindApplication(String packageName, ApplicationInfo info,
+                List<ProviderInfo> providers, ComponentName testName, ProfilerInfo profilerInfo,
+                Bundle testArgs, IInstrumentationWatcher testWatcher,
+                IUiAutomationConnection uiAutomationConnection, int debugMode,
+        boolean openGlTrace, boolean restrictedBackupMode, boolean persistent,
+        Configuration config, CompatibilityInfo compatInfo, Map<String, IBinder> services,
+                Bundle coreSettings) throws RemoteException {
+            Parcel data = Parcel.obtain();
+            data.writeInterfaceToken(IApplicationThread.descriptor);
+            data.writeString(packageName);
+            info.writeToParcel(data, 0);
+            data.writeTypedList(providers);
+            if (testName == null) {
+                data.writeInt(0);
+            } else {
+                data.writeInt(1);
+                testName.writeToParcel(data, 0);
+            }
+            if (profilerInfo != null) {
+                data.writeInt(1);
+                profilerInfo.writeToParcel(data, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+            } else {
+                data.writeInt(0);
+            }
+            data.writeBundle(testArgs);
+            data.writeStrongInterface(testWatcher);
+            data.writeStrongInterface(uiAutomationConnection);
+            data.writeInt(debugMode);
+            data.writeInt(openGlTrace ? 1 : 0);
+            data.writeInt(restrictedBackupMode ? 1 : 0);
+            data.writeInt(persistent ? 1 : 0);
+            config.writeToParcel(data, 0);
+            compatInfo.writeToParcel(data, 0);
+            data.writeMap(services);
+            data.writeBundle(coreSettings);
+            mRemote.transact(BIND_APPLICATION_TRANSACTION, data, null,
+                    IBinder.FLAG_ONEWAY);
+            data.recycle();
+        }*/
 /*
 
         try {
@@ -371,46 +518,3 @@ public void buildData(String packageName, ApplicationInfo info,
             //IBinder.FLAG_ONEWAY);
     //data.recycle();
     }*/
-
-}
-
-/*
-        public void bindApplication(String packageName, ApplicationInfo info,
-                List<ProviderInfo> providers, ComponentName testName, ProfilerInfo profilerInfo,
-                Bundle testArgs, IInstrumentationWatcher testWatcher,
-                IUiAutomationConnection uiAutomationConnection, int debugMode,
-        boolean openGlTrace, boolean restrictedBackupMode, boolean persistent,
-        Configuration config, CompatibilityInfo compatInfo, Map<String, IBinder> services,
-                Bundle coreSettings) throws RemoteException {
-            Parcel data = Parcel.obtain();
-            data.writeInterfaceToken(IApplicationThread.descriptor);
-            data.writeString(packageName);
-            info.writeToParcel(data, 0);
-            data.writeTypedList(providers);
-            if (testName == null) {
-                data.writeInt(0);
-            } else {
-                data.writeInt(1);
-                testName.writeToParcel(data, 0);
-            }
-            if (profilerInfo != null) {
-                data.writeInt(1);
-                profilerInfo.writeToParcel(data, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
-            } else {
-                data.writeInt(0);
-            }
-            data.writeBundle(testArgs);
-            data.writeStrongInterface(testWatcher);
-            data.writeStrongInterface(uiAutomationConnection);
-            data.writeInt(debugMode);
-            data.writeInt(openGlTrace ? 1 : 0);
-            data.writeInt(restrictedBackupMode ? 1 : 0);
-            data.writeInt(persistent ? 1 : 0);
-            config.writeToParcel(data, 0);
-            compatInfo.writeToParcel(data, 0);
-            data.writeMap(services);
-            data.writeBundle(coreSettings);
-            mRemote.transact(BIND_APPLICATION_TRANSACTION, data, null,
-                    IBinder.FLAG_ONEWAY);
-            data.recycle();
-        }*/

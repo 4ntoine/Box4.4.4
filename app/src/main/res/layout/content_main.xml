@@ -39,18 +39,54 @@
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Remove"
+        android:text="Bind"
         android:id="@+id/button2"
         android:layout_below="@+id/button"
         android:layout_alignParentStart="true"
-        android:onClick="buttonRemoveClick" />
+        android:onClick="buttonBindClick" />
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Start"
+        android:text="Replace"
         android:id="@+id/button3"
         android:layout_below="@+id/button2"
         android:layout_alignParentStart="true"
-        android:onClick="buttonStartClick" />
+        android:onClick="buttonReplaceClick" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="HookMe"
+        android:id="@+id/button4"
+        android:layout_below="@+id/button3"
+        android:layout_alignParentStart="true"
+        android:onClick="buttonHookMe" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Call Origin"
+        android:id="@+id/button5"
+        android:layout_below="@+id/button4"
+        android:layout_alignParentStart="true"
+        android:onClick="buttonOrigin" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start Activity"
+        android:id="@+id/button6"
+        android:layout_below="@+id/button5"
+        android:layout_alignParentStart="true"
+        android:onClick="buttonStartActivity" />
+
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Call target"
+        android:id="@+id/button7"
+        android:layout_below="@+id/button6"
+        android:layout_alignEnd="@+id/button5"
+        android:onClick="buttonTarget" />
 </RelativeLayout>
