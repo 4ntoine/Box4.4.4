@@ -21,6 +21,9 @@ struct InstField;
 struct Field;
 struct RegisterMap;
 
+#define SET_METHOD_FLAG(method, flag) \
+    do { (method)->accessFlags |= (flag); } while (0)
+
 /*
  * Native function pointer type.
  *

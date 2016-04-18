@@ -44,6 +44,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.example.mono.box444.Instrumentation;
+
 public class MainActivity extends AppCompatActivity {
 
     TextView mCallbackText;
@@ -330,50 +332,20 @@ public class MainActivity extends AppCompatActivity {
 
 
         Parcel data = Parcel.obtain();
-        Parcel reply;
-        Configuration config;
-        config = this.getResources().getConfiguration();
-        boolean hour = true;
-        Bundle b = new Bundle();
-        String DEBUG_VIEW_ATTRIBUTES = "debug_view_attributes";
-        b.putInt(DEBUG_VIEW_ATTRIBUTES, 0);
-
         data.writeInterfaceToken(descriptor);
-        data.writeString(appInfo.processName);
-        appInfo.writeToParcel(data, 0);
-        data.writeTypedList(null);
-        data.writeInt(0);//testName
-        data.writeString("doesnotmatter");//profilename kitkat
-        data.writeInt(0);//profilerInfo
-        data.writeInt(0);//autoStopProfiler kitkat
-        data.writeBundle(null);
-        data.writeStrongInterface(null);
-        data.writeStrongInterface(null);
-        data.writeInt(1);//debug mode
-        data.writeInt(0);//opengl
-        data.writeInt(0);//restrictedBackupMode
-        data.writeInt(0);//persistent
-        config.writeToParcel(data, 0);
-        //compatInfo.writeToParcel(data, 0);
-        data.writeInt(4);//compatinfo
-        data.writeInt(DisplayMetrics.DENSITY_DEFAULT);//compatinfo
-        data.writeFloat(1.0f);//compatinfo
-        data.writeFloat(1.0f);//compatinfo
-        data.writeMap(null);//services
-        //data.writeBundle(coreSettings);
-        data.writeBundle(b);
-        //if (binder = null)
+        Parcel reply = Parcel.obtain();;
+
         try{
-        binder.transact(IBinder.FIRST_CALL_TRANSACTION + 52, data, null, IBinder.FLAG_ONEWAY);}
+        binder.transact(IBinder.FIRST_CALL_TRANSACTION + 52, data, reply , IBinder.FLAG_ONEWAY);}
         catch(final RemoteException e){Log.d("Test", "remote exception");}
 
         data.recycle();
+        reply.recycle();
     }
 
     public void buttonTarget(View V){
         callTarget();
     }
-
     public void buttonReplaceClick(View v) {
         //Intent i = new Intent(this, General.class);
         //startActivity(i);
@@ -400,6 +372,8 @@ public class MainActivity extends AppCompatActivity {
     public native String  stringFromJNI();
     public native long Replace(Object o);
     public native void SetOriginal(long handle);
+    public native void whoamI();
+    public native void stub();
     public void hookMe(String s)
     {
         Log.d("Test", "Hook me!"+s);
@@ -421,6 +395,11 @@ public class MainActivity extends AppCompatActivity {
     {
         Intent g = new Intent(this, Main2Activity.class);
         startActivity(g);
+    }
+    Instrumentation i = new Instrumentation();
+    public void buttonJniHook(View V)
+    {
+        whoamI();
     }
 }
 

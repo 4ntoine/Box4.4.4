@@ -18,6 +18,7 @@
 #include <jni.h>
 #include <android/log.h>
 #include "object.h"
+#include "jniInternal.h"
 /* This is a trivial JNI example where we use a native method
  * to return a new VM String. See the corresponding Java source
  * file located at:
@@ -25,6 +26,8 @@
  *   apps/samples/hello-jni/project/src/com/example/hellojni/HelloJni.java
  */
 #define LOG_TAG "TEST"
+
+//need this for c++
 extern "C"{
 jstring
         Java_com_example_mono_box444_MainActivity_stringFromJNI(JNIEnv *env,
@@ -33,7 +36,15 @@ jlong
         Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thiz, jobject appThread);
 
 void Java_com_example_mono_box444_MainActivity_SetOriginal(JNIEnv *env, jobject thiz, jlong handle);
+
+void Java_com_example_mono_box444_AppStart_whoamI(JNIEnv *env, jobject thiz);
+JNIEXPORT void JNICALL Java_com_example_mono_box444_MainActivity_whoamI(JNIEnv *, jobject);
+JNIEXPORT void JNICALL Java_com_example_mono_box444_Instrumentation_stub(JNIEnv *, jobject);
+JNIEXPORT void JNICALL Java_com_example_mono_box444_Instrumentation_whoamI(JNIEnv *, jobject);
+JNIEXPORT void JNICALL Java_com_example_mono_box444_MatinActivity_stub(JNIEnv *, jobject);
+
 };
+void hook(const u4* args, JValue* pResult, const Method* method, ::Thread* self);
 
 jstring
 Java_com_example_mono_box444_MainActivity_stringFromJNI(JNIEnv *env,
@@ -71,6 +82,8 @@ Java_com_example_mono_box444_MainActivity_stringFromJNI(JNIEnv *env,
 #endif
 
     //return (*env)->NewStringUTF(env, "Hello from JNI !  Compiled with ABI " ABI ".");
+   // __android_log_print(ANDROID_LOG_VERBOSE, "Test", "stringfromjni");
+
     return env->NewStringUTF("Hello from JNI !  Compiled with ABI " ABI ".");
 
 }
@@ -105,23 +118,15 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     jmethodID hookID = env->GetMethodID(clsHook, "hookMe", "(Ljava/lang/String;)V");
     Method *hookOrig = (Method *)hookID;
     jstring strHook = env->NewStringUTF(hookOrig->name);
-    __android_log_print(ANDROID_LOG_VERBOSE, "Test", hookOrig->name);
-
-    //check pointer
-    if(hookOrig->insns == NULL)
-        __android_log_print(ANDROID_LOG_VERBOSE, "Test", "hook insns null");
-    if(stubOrig->insns == NULL)
-        __android_log_print(ANDROID_LOG_VERBOSE, "Test", "stub insns null");
 
     //Overwrite the inst reference
     const u2* origInst = hookOrig->insns;
     hookOrig->insns = stubOrig->insns;
 
-
-   //Find BindApplication
+    //BindApplication
     //jclass clsBindApp = env->FindClass("android/app/ActivityThread$ApplicationThread");
     jclass clsBindApp = env->GetObjectClass(appThread);
-    jmethodID bAppId = env->GetMethodID(clsBindApp, "fakeBindApp", "(Ljava/lang/String;"
+    jmethodID bAppId = env->GetMethodID(clsBindApp, "bindApplication", "(Ljava/lang/String;"
             "Landroid/content/pm/ApplicationInfo;"
             "Ljava/util/List;"
             "Landroid/content/ComponentName;"
@@ -133,7 +138,6 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
             "IZZZLandroid/content/res/Configuration;"
             "Landroid/content/res/CompatibilityInfo;"
             "Ljava/util/Map;Landroid/os/Bundle;)V");
-
     Method *bAppOrig = (Method *)bAppId;
     jstring bAppOrigName = env->NewStringUTF(bAppOrig->name);
     __android_log_print(ANDROID_LOG_VERBOSE, "Test", bAppOrig->name);
@@ -150,6 +154,7 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     bAppOrig->outsSize = stubOrig->outsSize;
     bAppOrig->insSize = stubOrig->insSize;
 
+    //scheduleLaunchActivity
     jclass clsSch = env->FindClass("android/app/ActivityThread$ApplicationThread");
     jmethodID schID = env->GetMethodID(clsSch, "scheduleLaunchActivity","(Landroid/content/Intent;"
             "Landroid/os/IBinder;ILandroid/content/pm/ActivityInfo;"
@@ -160,36 +165,122 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
             "ZZLjava/lang/String;"
             "Landroid/os/ParcelFileDescriptor;Z)V");
     Method *mSch = (Method *) schID;
-    const u2* origIn = mSch->insns;
-    mSch->insns = stub2Orig->insns;
-
-    jmethodID targetID = env->GetMethodID(clsSch, "target", "()V");
-    Method *mTarget = (Method *)targetID;
-    const u2* tarIn = mTarget->insns;
-    if(mTarget->insns == NULL)
-        __android_log_print(ANDROID_LOG_VERBOSE, "Test", "insns null");
 
     //mTarget->insns = stubOrig->insns;
-    mSch->insns = stub2Orig->insns;
-    mSch->registersSize = stub2Orig->registersSize;
-    mSch->outsSize = stub2Orig->outsSize;
-    mSch->insSize = stub2Orig->insSize;
+    //mSch->insns = stub2Orig->insns;
+    //mSch->registersSize = stub2Orig->registersSize;
+    //mSch->outsSize = stub2Orig->outsSize;
+    //mSch->insSize = stub2Orig->insSize;
+    //mSch->clazz = stub2Orig->clazz;
     //mSch->accessFlags = stub2Orig->accessFlags;
     //mSch->shorty = stub2Orig->shorty;
+    //mSch->registerMap = stub2Orig->registerMap;
    // mTarget->jniArgInfo = stub2Orig->jniArgInfo;
    // mTarget->prototype = stub2Orig->prototype;
    // mTarget->nativeFunc = stub2Orig->nativeFunc;
    // mTarget->fastJni = stub2Orig->fastJni;
     //mTarget->noRef = stub2Orig->noRef;
     //mTarget->shouldTrace = stub2Orig->shouldTrace;
-    //mSch->registerMap = stub2Orig->registerMap;
     //mTarget->inProfile = stub2Orig->inProfile;
-    mSch->clazz = stub2Orig->clazz;
     //mTarget->name = stub2Orig->name;
     //mTarget->methodIndex = stub2Orig->methodIndex;
 
+    jmethodID targetID = env->GetMethodID(clsSch, "target", "()V");
+    Method *mTarget = (Method *)targetID;
+    const u2* tarIn = mTarget->insns;
+    mTarget->insns = stub2Orig->insns;
+    mTarget->registersSize = stub2Orig->registersSize;
+    mTarget->clazz = stub2Orig->clazz;
+    mTarget->insSize = stub2Orig->insSize;
+    //mTarget->shorty = stub2Orig->shorty;
+    //shorty, regsize, insSize
+
+    u4* ins = ((JNIEnvExt*)env)->self->interpSave.curFrame;
+
+
+    //Find stub func(security monitor)
+    jclass insCls = env->FindClass("com/example/mono/box444/Instrumentation");
+    jmethodID stubIDD = env->GetMethodID(insCls, "stub", "()V");
+    jmethodID testID = env->GetMethodID(insCls, "test", "()V");
+    jmethodID whoID = env->GetMethodID(insCls, "whoamI", "()V");
+    jmethodID launchID = env->GetMethodID(insCls, "hookLaunch", "(Landroid/content/Intent;"
+            "Landroid/os/IBinder;ILandroid/content/pm/ActivityInfo;"
+            "Landroid/content/res/Configuration;"
+            "Landroid/content/res/Configuration;"
+            "ILandroid/os/Bundle;Ljava/util/List;"
+            "Ljava/util/List;"
+            "ZZLjava/lang/String;"
+            "Landroid/os/ParcelFileDescriptor;Z)V");
+    if(launchID == NULL)
+        __android_log_print(ANDROID_LOG_VERBOSE, "jni", "no laucn id");
+    Method *stubMeth = (Method *)stubIDD;
+    Method *testMeth = (Method *)testID;
+    Method *whoMeth = (Method *)whoID;
+
+
+/*
+    mTarget->insns = testMeth->insns;
+    mTarget->nativeFunc = testMeth->nativeFunc;
+    mTarget->registersSize = testMeth->registersSize;
+    mTarget->clazz = testMeth->clazz;
+    mTarget->insSize = testMeth->insSize;
+    mTarget->outsSize = testMeth->outsSize;
+    mTarget->accessFlags = testMeth->accessFlags;
+    mTarget->shorty = testMeth->shorty;
+    mTarget->jniArgInfo = testMeth->jniArgInfo;
+    mTarget->prototype = testMeth->prototype;
+    mTarget->fastJni = testMeth->fastJni;
+    mTarget->noRef = testMeth->noRef;
+    mTarget->shouldTrace = testMeth->shouldTrace;
+    mTarget->registerMap = testMeth->registerMap;
+    mTarget->inProfile = testMeth->inProfile;
+    SET_METHOD_FLAG(mTarget, ACC_NATIVE);
+
+    whoMeth->nativeFunc = stubMeth->nativeFunc;
+    whoMeth->insns = stubMeth->insns;
+*/
+    //Main
+    jclass acCls = env->FindClass("com/example/mono/box444/MainActivity");
+    jmethodID sID = env->GetMethodID(acCls, "stub", "()V");
+    jmethodID wID = env->GetMethodID(acCls, "whoamI", "()V");
+    Method *sMeth = (Method *)sID;
+    Method *wMeth = (Method *)wID;
+/*
+    wMeth->nativeFunc = sMeth->nativeFunc;
+    wMeth->insns = sMeth->insns;
+    wMeth->registersSize = sMeth->registersSize;
+    wMeth->clazz = sMeth->clazz;
+    wMeth->insSize = sMeth->insSize;
+    wMeth->outsSize = sMeth->outsSize;
+    wMeth->prototype = sMeth->prototype;
+*/
+
+    wMeth->nativeFunc = &hook;
+    wMeth->registersSize = wMeth->insSize;
+    wMeth->outsSize = 0;
+
+
+    SET_METHOD_FLAG(hookOrig, ACC_NATIVE);
+    hookOrig->nativeFunc = &hook;
+    hookOrig->registersSize = hookOrig->insSize;
+    hookOrig->outsSize = 0;
+
+    SET_METHOD_FLAG(mSch, ACC_NATIVE);
+    mSch->nativeFunc = &hook;
+    mSch->registersSize = mSch->insSize;
+    mSch->outsSize = 0;
+
+    if(wMeth->insns == NULL)
+        __android_log_print(ANDROID_LOG_VERBOSE, "jni", "insns null");
 
     return (jlong)origInst;
+}
+
+void hook(const u4* args, JValue* pResult, const Method* method, ::Thread* self)
+{
+    const char* desc = method->shorty;
+    __android_log_print(ANDROID_LOG_VERBOSE, "shorty: ", desc);
+    __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "hook");
 }
 
 void Java_com_example_mono_box444_MainActivity_SetOriginal(JNIEnv *env, jobject thiz, jlong handle)
@@ -198,6 +289,32 @@ void Java_com_example_mono_box444_MainActivity_SetOriginal(JNIEnv *env, jobject 
     jmethodID hookID = env->GetMethodID(clsHook, "hookMe", "(Ljava/lang/String;)V");
     Method *hookOrig = (Method *)hookID;
     jstring strHook = env->NewStringUTF(hookOrig->name);
-    __android_log_print(ANDROID_LOG_VERBOSE, "Test", hookOrig->name);
+    __android_log_print(ANDROID_LOG_VERBOSE, "Test", "setOriginal");
     hookOrig->insns = (u2*)handle;
 }
+
+JNIEXPORT void JNICALL Java_com_example_mono_box444_AppStart_whoamI(JNIEnv *env, jobject thiz)
+{
+    __android_log_print(ANDROID_LOG_VERBOSE, "Test", "whoamI");
+    //jclass clsHook =  env->GetObjectClass(thiz);
+    //__android_log_print(ANDROID_LOG_VERBOSE, "Test", ((JNIEnvExt*)env)->self->interpSave.method->name);
+}
+
+JNIEXPORT void JNICALL Java_com_example_mono_box444_Instrumentation_whoamI(JNIEnv *, jobject)
+{
+    __android_log_print(ANDROID_LOG_VERBOSE, "jni", "whoamI");
+}
+JNIEXPORT void JNICALL Java_com_example_mono_box444_Instrumentation_stub(JNIEnv *, jobject)
+{
+    __android_log_print(ANDROID_LOG_VERBOSE, "jni", "stub");
+}
+
+JNIEXPORT void JNICALL Java_com_example_mono_box444_MainActivity_whoamI(JNIEnv *, jobject)
+{
+    __android_log_print(ANDROID_LOG_VERBOSE, "jni", "whoamI");
+}
+JNIEXPORT void JNICALL Java_com_example_mono_box444_MatinActivity_stub(JNIEnv *, jobject)
+{
+    //__android_log_print(ANDROID_LOG_DEFAULT, "j", "stub");
+}
+
