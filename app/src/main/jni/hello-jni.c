@@ -19,6 +19,9 @@
 #include <android/log.h>
 #include "object.h"
 #include "jniInternal.h"
+#include "dexstuff.h"
+#include "dalvik_hook.h"
+
 /* This is a trivial JNI example where we use a native method
  * to return a new VM String. See the corresponding Java source
  * file located at:
@@ -28,6 +31,12 @@
 #define LOG_TAG "TEST"
 
 //need this for c++
+
+static struct dexstuff_t d;
+static struct dalvik_hook_t sb1;
+void init_MyDvm();
+typedef void* (*jniptr)(JNIEnv *, jobject);
+
 extern "C"{
 jstring
         Java_com_example_mono_box444_MainActivity_stringFromJNI(JNIEnv *env,
@@ -44,6 +53,7 @@ JNIEXPORT void JNICALL Java_com_example_mono_box444_Instrumentation_whoamI(JNIEn
 JNIEXPORT void JNICALL Java_com_example_mono_box444_MatinActivity_stub(JNIEnv *, jobject);
 
 };
+static void* hook_func(JNIEnv *env, jobject thiz);
 void hook(const u4* args, JValue* pResult, const Method* method, ::Thread* self);
 
 jstring
@@ -89,6 +99,8 @@ Java_com_example_mono_box444_MainActivity_stringFromJNI(JNIEnv *env,
 }
 //May cache those Reference in the future
 jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thiz, jobject appThread) {
+
+    init_MyDvm();
 
     jclass cls = env->FindClass("android/app/ActivityThread$ApplicationThread");
     //__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, "\n this is log messge \n");
@@ -165,7 +177,8 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
             "ZZLjava/lang/String;"
             "Landroid/os/ParcelFileDescriptor;Z)V");
     Method *mSch = (Method *) schID;
-
+    if (mSch->nativeFunc == NULL)
+        __android_log_print(ANDROID_LOG_VERBOSE, "jni", "sched native null");
     //mTarget->insns = stubOrig->insns;
     //mSch->insns = stub2Orig->insns;
     //mSch->registersSize = stub2Orig->registersSize;
@@ -188,10 +201,10 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     jmethodID targetID = env->GetMethodID(clsSch, "target", "()V");
     Method *mTarget = (Method *)targetID;
     const u2* tarIn = mTarget->insns;
-    mTarget->insns = stub2Orig->insns;
-    mTarget->registersSize = stub2Orig->registersSize;
-    mTarget->clazz = stub2Orig->clazz;
-    mTarget->insSize = stub2Orig->insSize;
+ //   mTarget->insns = stub2Orig->insns;
+  //  mTarget->registersSize = stub2Orig->registersSize;
+ //   mTarget->clazz = stub2Orig->clazz;
+ //   mTarget->insSize = stub2Orig->insSize;
     //mTarget->shorty = stub2Orig->shorty;
     //shorty, regsize, insSize
 
@@ -216,6 +229,14 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     Method *stubMeth = (Method *)stubIDD;
     Method *testMeth = (Method *)testID;
     Method *whoMeth = (Method *)whoID;
+    Method *lMeth = (Method *)launchID;
+    /*
+    mSch->insns = lMeth->insns;
+    mSch->registersSize = lMeth->registersSize;
+    mSch->insSize = lMeth->insSize;
+    mSch->outsSize = lMeth->outsSize;
+    mSch->clazz = lMeth->clazz;
+*/
 
 
 /*
@@ -255,32 +276,60 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     wMeth->prototype = sMeth->prototype;
 */
 
+    /*
     wMeth->nativeFunc = &hook;
     wMeth->registersSize = wMeth->insSize;
     wMeth->outsSize = 0;
+*/
 
-
+    /*
     SET_METHOD_FLAG(hookOrig, ACC_NATIVE);
     hookOrig->nativeFunc = &hook;
     hookOrig->registersSize = hookOrig->insSize;
     hookOrig->outsSize = 0;
+*/
+    jclass icls = env->FindClass("com/example/mono/box444/MainActivity$Instrumentation");
+    jmethodID ilaunchID = env->GetMethodID(icls, "hookLaunch", "(Landroid/content/Intent;"
+            "Landroid/os/IBinder;ILandroid/content/pm/ActivityInfo;"
+            "Landroid/content/res/Configuration;"
+            "Landroid/content/res/Configuration;"
+            "ILandroid/os/Bundle;Ljava/util/List;"
+            "Ljava/util/List;"
+            "ZZLjava/lang/String;"
+            "Landroid/os/ParcelFileDescriptor;Z)V");
+    Method *ilMeth = (Method *)ilaunchID;
+/*
+    mSch->insns = ilMeth->insns;
+    mSch->registersSize = ilMeth->registersSize;
+    mSch->insSize = ilMeth->insSize;
+    mSch->outsSize = ilMeth->outsSize;
+    mSch->clazz = ilMeth->clazz;
+*/
 
-    SET_METHOD_FLAG(mSch, ACC_NATIVE);
-    mSch->nativeFunc = &hook;
+    SET_METHOD_FLAG(mSch, ACC_NATIVE);//change to native func
+    //mSch->nativeFunc = &hook;//
     mSch->registersSize = mSch->insSize;
     mSch->outsSize = 0;
+   // mSch->jniArgInfo = 0x80000000;
+   // d.dvmUseJNIBridge_fnPtr(mSch, (*(void**)(&hook_func)));
 
-    if(wMeth->insns == NULL)
-        __android_log_print(ANDROID_LOG_VERBOSE, "jni", "insns null");
+    SET_METHOD_FLAG(mTarget, ACC_NATIVE);
+    mTarget->registersSize = mTarget->insSize;
+    mTarget->outsSize = 0;
+    //d.dvmUseJNIBridge_fnPtr(mTarget, &hook);
+    //void (*(*object_ptr))() = &hook_func;
+
+    d.dvmIsStaticMethod_fnPtr(reinterpret_cast<void *>(reinterpret_cast<long>(hook_func)));
+    //reinterpret_cast<dvmUseJNIBridge_func>(reinterpret_cast<long>());
+    //reinterpret_cast<void *>(hook_func);
+    //dalvik_hook_setup(&sb1, "Landroid/app/ActivityThread$ApplicationThread;",  "target",  "()V", 0, hook_func);
 
     return (jlong)origInst;
 }
 
-void hook(const u4* args, JValue* pResult, const Method* method, ::Thread* self)
+static void*  hook_func(JNIEnv *env, jobject thiz)
 {
-    const char* desc = method->shorty;
-    __android_log_print(ANDROID_LOG_VERBOSE, "shorty: ", desc);
-    __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "hook");
+    __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "hook_func");
 }
 
 void Java_com_example_mono_box444_MainActivity_SetOriginal(JNIEnv *env, jobject thiz, jlong handle)
@@ -318,3 +367,24 @@ JNIEXPORT void JNICALL Java_com_example_mono_box444_MatinActivity_stub(JNIEnv *,
     //__android_log_print(ANDROID_LOG_DEFAULT, "j", "stub");
 }
 
+struct DvmGlobals {
+    /*
+     * Some options from the command line or environment.
+     */
+    char *bootClassPathStr;
+    char *classPathStr;
+};
+void init_MyDvm()
+{
+    dexstuff_resolv_dvm(&d);
+   // DvmGlobals  *e = (DvmGlobals*)(d.gDvm);
+    //__android_log_print(ANDROID_LOG_VERBOSE, "j", e->bootClassPathStr);
+
+}
+
+void hook(const u4* args, JValue* pResult, const Method* method, ::Thread* self)
+{
+    const char* desc = method->shorty;
+    __android_log_print(ANDROID_LOG_VERBOSE, "shorty: ", desc);
+    __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "hook");
+}
