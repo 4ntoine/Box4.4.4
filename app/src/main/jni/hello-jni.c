@@ -62,15 +62,16 @@ static nativeClientEnv* cEnv = NULL;
 static JavaVM *gjvm = NULL;
 static JNIEnv *genv = NULL;
 static jobject obj;
-static jclass gcls;
 static jmethodID gmeth;
+
+static jobject these;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
 {
     gjvm = vm;
     JNIEnv *env = NULL;
     if ((*vm)->GetEnv(vm, &env, JNI_VERSION_1_6) != JNI_OK) {
-        //__android_log_print(ANDROID_LOG_VERBOSE, "FAIL", "FAIL");
+        __android_log_print(ANDROID_LOG_VERBOSE, "FAIL", "FAIL");
 
         return -1;
     }
@@ -82,6 +83,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved)
     mainCls = (*env)->NewGlobalRef(env, cls);
     __android_log_print(ANDROID_LOG_VERBOSE, "JNI", "ONLOAD");
 
+    //jmethodID id =(*env)->GetMethodID(env, cls, "hookMe", "()V");
+    //(*env)->CallVoidMethod(env, cls, id);
     return JNI_VERSION_1_6;
 }
 
@@ -136,6 +139,10 @@ jlong Java_com_example_mono_box444_MainActivity_Replace(JNIEnv *env, jobject thi
     init_MyDvm();//init dvm methods
     new_intent = (*env)->NewGlobalRef(env, intent);
     main_thread = (*env)->NewGlobalRef(env, appThread);
+    these = (*env)->NewGlobalRef(env, thiz);
+
+    //jmethodID id =(*env)->GetMethodID(env, mainCls, "hookMe", "()V");
+    //(*env)->CallVoidMethod(env, thiz, id);
 //    jint v = (*env)->GetVersion(env);
 //    __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "%x",v);
 
@@ -218,11 +225,7 @@ static void* hook_func(JNIEnv *env, jobject thiz, jobject intent, jobject binder
  //   Method *m = (Method *)id;
     //prepare(&sb1);
     dalvik_prepare(&d, &sb1, env);
-    if((*(gjvm))->AttachCurrentThread(gjvm, &genv, NULL) != JNI_OK) {
-        __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "Fail");
-    }
-    if (env == genv)
-        __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "COOOOOL");
+
 
 
     // jvalue args[15];
@@ -316,19 +319,17 @@ static void* hook_func(JNIEnv *env, jobject thiz, jobject intent, jobject binder
     args[12].z = autostop;
 
 
-   // jmethodID targetSchMeth = (*env)->GetMethodID(genv, mainCls, "targetSchedule", "(Landroid/content/Intent;Landroid/os/IBinder;ILandroid/content/pm/ActivityInfo;Landroid/content/res/Configuration;ILandroid/os/Bundle;Ljava/util/List;ZZLjava/lang/String;Landroid/os/ParcelFileDescriptor;Z)V");
-  //  if(targetSchMeth == NULL)
-  //      __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "targetMethod not found");
- //   else
-  //      __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "targetMethod is fine");
+    jmethodID targetSchMeth = (*env)->GetMethodID(env, mainCls, "targetSchedule", "(Landroid/content/Intent;Landroid/os/IBinder;ILandroid/content/pm/ActivityInfo;Landroid/content/res/Configuration;ILandroid/os/Bundle;Ljava/util/List;ZZLjava/lang/String;Landroid/os/ParcelFileDescriptor;Z)V");
+    if(targetSchMeth == NULL)
+        __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "targetMethod not found");
+    else
+        __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "targetMethod is fine");
 
-  //  (*env)->CallVoidMethodA(env, thiz, targetSchMeth, args);
+    (*env)->CallVoidMethodA(env, these, targetSchMeth, args);
 
-    jmethodID hookMeth = (*genv)->GetMethodID(genv, mainCls, "hookMe", "()V");
-    if(hookMeth!=NULL)
-        __android_log_print(ANDROID_LOG_VERBOSE, "Hook", "hookme is fine");
-    (*genv)->CallVoidMethod(genv, thiz, hookMeth);
 
+//jmethodID id =(*env)->GetMethodID(env, mainCls, "hookMe", "()V");
+  //  (*env)->CallVoidMethod(env, these, id);
     //post(&sb1, &d);
     dalvik_postcall(&d, &sb1);
 }

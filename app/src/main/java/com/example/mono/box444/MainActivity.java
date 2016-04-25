@@ -397,7 +397,7 @@ public class MainActivity extends AppCompatActivity {
             ComponentName targetName = new ComponentName(targetpack, "com.example.xin.tester.MainActivity");
             targetIntent.setComponent(targetName);
 
-            handle = Replace(targetThread, targetIntent);
+            handle = Replace(applicationThread, targetIntent);
         }catch (Exception e) {
             e.printStackTrace();
         }
