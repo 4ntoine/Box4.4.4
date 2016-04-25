@@ -15,6 +15,8 @@ import java.util.List;
  * Created by moslab on 4/17/16.
  */
 public class Instrumentation {
+    String abc = "abc";
+
     public native void whoamI();
     public native void stub();
     public void replace() {
@@ -32,7 +34,12 @@ public class Instrumentation {
                                  List<Intent> pendingNewIntents, boolean notResumed, boolean isForward,
                                  String profileName, ParcelFileDescriptor profileFd, boolean autoStopProfiler)
     {
-        Log.d("Instrumentatino", "indent"+ident);
+        Log.d("Instrumentation", "indent"+ident);
+        Log.d("Instrumentation", "profileName"+profileName);
+        Log.d("Instrumentation", "procstate"+procState);
 
+        Log.d("Instrumentation", abc);
+        Log.d("Instrumentation", ""+notResumed);
+        Log.d("Instrumentation", ""+isForward);
     }
 }

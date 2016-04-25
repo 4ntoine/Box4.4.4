@@ -23,6 +23,9 @@ import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
 import android.os.Process;
+
+import com.google.gson.Gson;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -107,14 +110,17 @@ public class SandboxService extends Service {
                     }
 */
                     int pid = Process.myPid();
-                    IBinder mThread = getApplicationThreadBinder();
+                    IBinder mThreadBinder = getApplicationThreadBinder();
 
                     Bundle b = new Bundle();
                     // b.putString("ThreadName", name);
                     b.putString("PackName", processName);
                     b.putString("ProcessName", processName);
                     b.putString("Pid", Integer.toString(pid));
-                    b.putBinder("ThreadBinder", mThread);
+                    b.putBinder("ThreadBinder", mThreadBinder);
+                    String threadStr = new Gson().toJson(mThread);
+                    b.putString("ThreadString", threadStr);
+
                     Message mm = Message.obtain(null, SandboxService.MSG_PREPAPRE);
                     mm.setData(b);
                     try{
@@ -213,7 +219,7 @@ public class SandboxService extends Service {
 
         } catch (final ClassNotFoundException e) {
             // handle exception
-        } //catch (final NoSuchMethodException e) {}
+        }   //catch (final NoSuchMethodException e) {}
             // handle exception
          catch (final IllegalArgumentException e) {
             // handle exception
@@ -222,7 +228,6 @@ public class SandboxService extends Service {
         //} //catch (final InvocationTargetException e) {
             // handle exception
         //}
-
             return  ((IInterface) applicationThread).asBinder();
             //return null;
         } catch (Exception e) {

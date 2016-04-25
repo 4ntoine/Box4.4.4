@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
@@ -20,6 +21,8 @@ import android.os.IInterface;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
+import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.Process;
 import android.support.design.widget.FloatingActionButton;
@@ -37,6 +40,10 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -45,11 +52,16 @@ import java.util.List;
 import java.util.Map;
 
 import com.example.mono.box444.Instrumentation;
+import com.google.gson.Gson;
+
+import dalvik.system.DexClassLoader;
+import dalvik.system.DexFile;
 
 public class MainActivity extends AppCompatActivity {
 
     TextView mCallbackText;
     IBinder mAppThreadBinder;
+    Object targetThread;
     int cPid;
     ApplicationInfo appInfo;
     long handle;
@@ -137,6 +149,9 @@ public class MainActivity extends AppCompatActivity {
                     mCallbackText.setText(msg.getData().getString("Pid"));
                     cPid = Integer.parseInt(p);
                     mAppThreadBinder = msg.getData().getBinder("ThreadBinder");
+                    String tarThread = msg.getData().getString("ThreadString");
+                    targetThread = new Gson().fromJson(tarThread, Object.class);
+
                     //if(AppThreadBinder.isBinderAlive())
                     // mCallbackText.setText(("BinderAlive"));
                     break;
@@ -229,6 +244,10 @@ public class MainActivity extends AppCompatActivity {
         catch (PackageManager.NameNotFoundException e){
             Log.d("TEST", "tester not found");
         }
+
+
+        //File dexFile = getFileStreamPath("tester-2.apk");
+       // Log.d("main", dexFile.getAbsolutePath());
     }
 
 
@@ -364,28 +383,42 @@ public class MainActivity extends AppCompatActivity {
             // Get application thread and return it as binder
             Object applicationThread = Class.forName("android.app.ActivityThread").getMethod("getApplicationThread").invoke(mainThread);
            // mCallbackText.setText(Replace(applicationThread));
-            handle = Replace(applicationThread);
+
+            //activity inside the same process
+            Intent it = new Intent();
+            String targetpackage = "com.example.mono.box444";
+            ComponentName name = new ComponentName(targetpackage, Main3Activity.class.getCanonicalName());//may need hard write for name part here
+            Log.d("CanonicalName", Main3Activity.class.getCanonicalName());
+            it.setComponent(name);
+
+            //main activity inside target
+            Intent targetIntent = new Intent();
+            String targetpack = "com.example.xin.tester";
+            ComponentName targetName = new ComponentName(targetpack, "com.example.xin.tester.MainActivity");
+            targetIntent.setComponent(targetName);
+
+            handle = Replace(targetThread, targetIntent);
         }catch (Exception e) {
             e.printStackTrace();
         }
     }
     public native String  stringFromJNI();
-    public native long Replace(Object o);
+    public native long Replace(Object appThread, Object intent);
     public native void SetOriginal(long handle);
     public native void whoamI();
     public native void stub();
-    public void hookMe(String s)
+    public void hookMe()
     {
-        Log.d("Test", "Hook me!"+s);
+        Log.d("Test", "Hook me!");
     }
     public void buttonHookMe(View v)
     {
-        hookMe("ABC");
+        hookMe();
     }
     public void CallOriginal(long handle)
     {
         SetOriginal(handle);
-        hookMe("ABC");
+        hookMe();
     }
     public void buttonOrigin(View v)
     {
@@ -400,6 +433,115 @@ public class MainActivity extends AppCompatActivity {
     public void buttonJniHook(View V)
     {
         whoamI();
+    }
+
+    public void targetSchedule(Intent intent, IBinder token, int ident,
+                               ActivityInfo info, Configuration curConfig,
+                               int procState, Bundle state,
+                               List<Intent> pendingNewIntents, boolean notResumed, boolean isForward,
+                               String profileName, ParcelFileDescriptor profileFd, boolean autoStopProfiler)
+    {
+        Log.d("TargetSch", "targetSchedule");
+        String descriptor = "android.app.IApplicationThread";
+        Parcel data = Parcel.obtain();
+        data.writeInterfaceToken(descriptor);
+        intent.writeToParcel(data, 0);
+        data.writeStrongBinder(token);
+        data.writeInt(ident);
+        info.writeToParcel(data, 0);
+        curConfig.writeToParcel(data, 0);
+        //compatInfo.writeToParcel(data, 0);
+        //decompose compatinfo struct, hard write
+        data.writeInt(0);
+        data.writeInt(480);
+        data.writeFloat(1.0f);
+        data.writeFloat(1.0f);
+        data.writeInt(procState);
+        data.writeBundle(state);
+        //data.writeTypedList(pendingResults);
+        //pending result null, write -1
+        data.writeInt(-1);
+        data.writeTypedList(pendingNewIntents);
+        data.writeInt(notResumed ? 1 : 0);
+        data.writeInt(isForward ? 1 : 0);
+        data.writeString(profileName);
+        if (profileFd != null) {
+            data.writeInt(1);
+            profileFd.writeToParcel(data, Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+        } else {
+            data.writeInt(0);
+        }
+
+            data.writeInt(autoStopProfiler ? 1 : 0);
+        try {
+            mAppThreadBinder.transact(IBinder.FIRST_CALL_TRANSACTION + 6, data, null,
+                    IBinder.FLAG_ONEWAY);
+        }catch (final RemoteException e) {
+            Log.d("targetSchedule", "remote exception\n\n");
+        }
+        data.recycle();
+    }
+
+    public class Instrumentation {
+        public native void whoamI();
+        public native void stub();
+        public void replace() {
+
+        }
+        public void test(){
+            // Log.d("Instrumentation", "I'm Test");
+            whoamI();
+            //  Log.d("Instrumentation", "I'm Test");
+        }
+
+        public final void hookLaunch(Intent intent, IBinder token, int ident,
+                                     ActivityInfo info, Configuration curConfig, Configuration cuConfig,
+                                     int procState, Bundle state, List<Configuration> pendingResults,
+                                     List<Intent> pendingNewIntents, boolean notResumed, boolean isForward,
+                                     String profileName, ParcelFileDescriptor profileFd, boolean autoStopProfiler)
+        {
+            Log.d("Instrumentation", "indent"+ident);
+            Log.d("Instrumentation", "profileName"+profileName);
+            Log.d("Instrumentation", "procstate"+procState);
+           // Log.d("Instrumentation",mAppThreadBinder.toString());
+            //mAppThreadBinder.tra
+        }
+    }
+
+    public static void patchClassLoader(ClassLoader cl, File apkFile, File optDexFile)
+            throws IllegalAccessException, NoSuchMethodException, IOException,
+            InvocationTargetException, InstantiationException, NoSuchFieldException {
+
+        // 获取 BaseDexClassLoader : pathList
+        Field pathListField = DexClassLoader.class.getSuperclass().getDeclaredField("pathList");
+        pathListField.setAccessible(true);
+        Object pathListObj = pathListField.get(cl);
+
+        // 获取 PathList: Element[] dexElements
+        Field dexElementArray = pathListObj.getClass().getDeclaredField("dexElements");
+        dexElementArray.setAccessible(true);
+        Object[] dexElements = (Object[]) dexElementArray.get(pathListObj);
+
+        // Element 类型
+        Class<?> elementClass = dexElements.getClass().getComponentType();
+
+        // 创建一个数组, 用来替换原始的数组
+        Object[] newElements = (Object[]) Array.newInstance(elementClass, dexElements.length + 1);
+
+        // 构造插件Element(File file, boolean isDirectory, File zip, DexFile dexFile) 这个构造函数
+        Constructor<?> constructor = elementClass.getConstructor(File.class, boolean.class, File.class, DexFile.class);
+        Object o = constructor.newInstance(apkFile, false, apkFile, DexFile.loadDex(apkFile.getCanonicalPath(), optDexFile.getAbsolutePath(), 0));
+
+        Object[] toAddElementArray = new Object[] { o };
+        // 把原始的elements复制进去
+        System.arraycopy(dexElements, 0, newElements, 0, dexElements.length);
+        // 插件的那个element复制进去
+        System.arraycopy(toAddElementArray, 0, newElements, dexElements.length, toAddElementArray.length);
+
+        // 替换
+        dexElementArray.set(pathListObj, newElements);
+
+
     }
 }
 

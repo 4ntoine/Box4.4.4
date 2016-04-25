@@ -18,20 +18,23 @@
 #include <stdarg.h>
 
 #include "dexstuff.h"
-
-#include "log.h"
+#include <android/log.h>
+//#include "log.h"
 
 static void* mydlsym(void *hand, const char *name)
 {
     void* ret = dlsym(hand, name);
-    log("%s = 0x%x\n", name, ret)
+   // log("%s = 0x%x\n", name, ret)
+    __android_log_print(ANDROID_LOG_VERBOSE, "dvm", "%s = 0x%x\n", name, ret);
+
     return ret;
 }
 
 void dexstuff_resolv_dvm(struct dexstuff_t *d)
 {
     d->dvm_hand = dlopen("libdvm.so", RTLD_NOW);
-    log("dvm_hand = 0x%x\n", d->dvm_hand)
+   // log("dvm_hand = 0x%x\n", d->dvm_hand)
+    __android_log_print(ANDROID_LOG_VERBOSE, "dvm", "dvm_hand = 0x%x\n", d->dvm_hand);
 
     if (d->dvm_hand) {
         d->dvm_dalvik_system_DexFile = (DalvikNativeMethod*) mydlsym(d->dvm_hand, "dvm_dalvik_system_DexFile");
